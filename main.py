@@ -793,6 +793,82 @@ class NiuNiuPlugin(Star):
 
         yield event.plain_result("\n".join(lines))
 
+    @filter.command("牛牛使用")
+    async def use_item(self, event: AstrMessageEvent, item_id: str = ""):
+        """使用背包中的道具。饰品不可使用，只提供魅力值。"""
+        await self._ensure_db()
+
+        group_id = self._group_id(event)
+        user_id = self._user_id(event)
+        nickname = self._nickname(event)
+
+        if not item_id:
+            yield event.plain_result("请提供要使用的道具 ID，例如：牛牛使用 debuff_shield")
+            return
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("BEGIN IMMEDIATE")
+
+            user = await self._get_user(db, group_id, user_id)
+            if not user:
+                msg = await self._text(db, "my.not_registered", nickname=nickname)
+                await db.commit()
+                yield event.plain_result(msg)
+                return
+
+            rows = await db.execute_fetchall(
+                """
+                SELECT i.count, i.item_type, s.name, s.effect_json
+                FROM inventory i
+                JOIN shop_items s ON i.item_id = s.item_id
+                WHERE i.group_id = ? AND i.user_id = ? AND i.item_id = ?
+                """,
+                (group_id, user_id, item_id)
+            )
+
+            if not rows:
+                await db.commit()
+                yield event.plain_result(f"{nickname}，你的背包里没有这个道具哦。")
+                return
+
+            count, item_type, item_name, effect_json = rows[0]
+
+            if item_type == "accessory":
+                await db.commit()
+                yield event.plain_result(
+                    f"{nickname}，{item_name} 是饰品，已经在默默增加魅力值啦，不需要手动使用。"
+                )
+                return
+
+            effect = json.loads(effect_json)
+
+            await self._apply_item_effect(db, group_id, user_id, effect)
+
+            if int(count) <= 1:
+                await db.execute(
+                    """
+                    DELETE FROM inventory
+                    WHERE group_id = ? AND user_id = ? AND item_id = ?
+                    """,
+                    (group_id, user_id, item_id)
+                )
+            else:
+                await db.execute(
+                    """
+                    UPDATE inventory
+                    SET count = count - 1
+                    WHERE group_id = ? AND user_id = ? AND item_id = ?
+                    """,
+                    (group_id, user_id, item_id)
+                )
+
+            await self._recalc_charm(db, group_id, user_id)
+            await db.commit()
+
+        yield event.plain_result(
+            f"{nickname}，你使用了 {item_name}，牛牛状态发生了微妙而可靠的变化。"
+        )
+
     # ======================
     # 指令：牛牛购买 道具ID
     # ======================
