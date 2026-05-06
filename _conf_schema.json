@@ -9,11 +9,24 @@
     "description": "是否启用内置管理后台",
     "type": "bool",
     "default": false,
-    "hint": "第一版先预留，后续可开启 FastAPI/Aiohttp 管理后台"
+    "hint": "开启后会启动一个本地 Web 管理页面"
+  },
+  "admin_server_host": {
+    "description": "管理后台监听地址",
+    "type": "string",
+    "default": "127.0.0.1",
+    "hint": "建议保持 127.0.0.1，再通过反向代理暴露"
   },
   "admin_server_port": {
     "description": "内置管理后台端口",
     "type": "int",
     "default": 8787
+  },
+  "admin_token": {
+    "description": "管理后台访问 Token",
+    "type": "string",
+    "default": "please-change-me",
+    "obvious_hint": true,
+    "hint": "强烈建议修改，否则后台可能被未授权访问"
   }
 }
