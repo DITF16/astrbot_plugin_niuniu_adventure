@@ -129,6 +129,7 @@ class NiuNiuPlugin(Star):
                     price INTEGER NOT NULL,
                     effect_json TEXT NOT NULL,
                     description TEXT NOT NULL,
+                    use_mode TEXT NOT NULL DEFAULT 'instant',
                     enabled INTEGER NOT NULL DEFAULT 1,
                     created_at INTEGER NOT NULL
                 );
@@ -177,10 +178,26 @@ class NiuNiuPlugin(Star):
 
             await self._seed_default_shop(db)
             await self._seed_default_texts(db)
+            await self._migrate_db(db)
             await db.commit()
 
         self._db_ready = True
         logger.info("牛牛大乱斗数据库初始化完成")
+
+    async def _migrate_db(self, db: aiosqlite.Connection):
+        """
+        数据库轻量迁移。
+
+        SQLite 不支持很多复杂 ALTER，这里采用安全的增量字段添加方式。
+        """
+        rows = await db.execute_fetchall("PRAGMA table_info(shop_items)")
+        columns = {row[1] for row in rows}
+
+        if "use_mode" not in columns:
+            await db.execute(
+                "ALTER TABLE shop_items ADD COLUMN use_mode TEXT NOT NULL DEFAULT 'instant'"
+            )
+            logger.info("数据库迁移完成：shop_items.use_mode")
 
     async def _seed_default_shop(self, db: aiosqlite.Connection):
         rows = await db.execute_fetchall("SELECT COUNT(*) FROM shop_items")
@@ -233,8 +250,9 @@ class NiuNiuPlugin(Star):
                 "name": "稳态护符",
                 "item_type": "prop",
                 "price": 100,
+                "use_mode": "inventory",
                 "effect": {"debuff_shield_seconds": 3600},
-                "description": "1小时内免除 debuff 事件影响"
+                "description": "使用后 1 小时内免除 debuff 事件影响"
             },
             {
                 "item_id": "event_ignore",
@@ -266,8 +284,8 @@ class NiuNiuPlugin(Star):
             await db.execute(
                 """
                 INSERT OR IGNORE INTO shop_items
-                (item_id, name, item_type, price, effect_json, description, enabled, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+                (item_id, name, item_type, price, effect_json, description, use_mode, enabled, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
                 """,
                 (
                     item["item_id"],
@@ -276,6 +294,7 @@ class NiuNiuPlugin(Star):
                     item["price"],
                     json.dumps(item["effect"], ensure_ascii=False),
                     item["description"],
+                    item.get("use_mode", "instant"),
                     now_ts()
                 )
             )
@@ -759,7 +778,7 @@ class NiuNiuPlugin(Star):
 
             rows = await db.execute_fetchall(
                 """
-                SELECT item_id, name, item_type, price, effect_json
+                SELECT item_id, name, item_type, price, effect_json, use_mode
                 FROM shop_items
                 WHERE item_id = ? AND enabled = 1
                 """,
@@ -771,7 +790,7 @@ class NiuNiuPlugin(Star):
                 yield event.plain_result(msg)
                 return
 
-            item_id, item_name, item_type, price, effect_json = rows[0]
+            item_id, item_name, item_type, price, effect_json, use_mode = rows[0]
             if int(user["energy"]) < int(price):
                 msg = await self._text(
                     db,
@@ -796,7 +815,7 @@ class NiuNiuPlugin(Star):
             )
 
             # 饰品进背包，道具默认立即生效。
-            if item_type == "accessory":
+            if item_type == "accessory" or use_mode == "inventory":
                 await db.execute(
                     """
                     INSERT INTO inventory(group_id, user_id, item_id, item_type, count)
