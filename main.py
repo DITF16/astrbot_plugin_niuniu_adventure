@@ -869,6 +869,67 @@ class NiuNiuPlugin(Star):
             f"{nickname}，你使用了 {item_name}，牛牛状态发生了微妙而可靠的变化。"
         )
 
+    @filter.command("牛牛排行")
+    async def rank(self, event: AstrMessageEvent, rank_type: str = "长度"):
+        """
+        查看本群牛牛排行榜。
+
+        用法：
+        牛牛排行
+        牛牛排行 长度
+        牛牛排行 粗度
+        牛牛排行 硬度
+        牛牛排行 魅力
+        牛牛排行 精力
+        """
+        await self._ensure_db()
+
+        group_id = self._group_id(event)
+
+        mapping = {
+            "长度": ("length", "长度"),
+            "粗度": ("girth", "粗度"),
+            "硬度": ("hardness", "硬度"),
+            "魅力": ("charm", "魅力值"),
+            "魅力值": ("charm", "魅力值"),
+            "精力": ("energy", "精力")
+        }
+
+        column, title = mapping.get(rank_type, ("length", "长度"))
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            rows = await db.execute_fetchall(
+                f"""
+                SELECT nickname, user_id, {column}
+                FROM users
+                WHERE group_id = ?
+                ORDER BY {column} DESC
+                LIMIT 10
+                """,
+                (group_id,)
+            )
+
+        if not rows:
+            yield event.plain_result("当前群里还没有人注册牛牛呢，排行榜空空如也。")
+            return
+
+        lines = [f"本群牛牛{title}排行榜："]
+
+        medals = ["🥇", "🥈", "🥉"]
+
+        for idx, row in enumerate(rows, start=1):
+            nickname, user_id, value = row
+            prefix = medals[idx - 1] if idx <= 3 else f"{idx}."
+            if column == "energy":
+                value_text = f"{int(value)}"
+            else:
+                value_text = fmt(float(value))
+            lines.append(f"{prefix} {nickname}：{value_text}")
+
+        lines.append("\n排行榜只是暂时的，真正的强者还在悄悄养成。")
+
+        yield event.plain_result("\n".join(lines))
+
     # ======================
     # 指令：牛牛购买 道具ID
     # ======================
