@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>牛牛大乱斗管理后台</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      background: #f6f7fb;
+      color: #222;
+    }
+
+    header {
+      background: #24292f;
+      color: #fff;
+      padding: 16px 24px;
+    }
+
+    main {
+      padding: 24px;
+    }
+
+    section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    input, textarea, select, button {
+      font-size: 14px;
+      padding: 8px;
+      margin: 4px 0;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    input, select {
+      width: 100%;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      background: #2f81f7;
+      color: #fff;
+      padding: 8px 14px;
+    }
+
+    button.danger {
+      background: #d1242f;
+    }
+
+    button.secondary {
+      background: #57606a;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .hint {
+      color: #666;
+      font-size: 13px;
+    }
+
+    .json {
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      max-width: 360px;
+      word-break: break-all;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tabs button {
+      background: #57606a;
+    }
+
+    .tabs button.active {
+      background: #2f81f7;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>牛牛大乱斗管理后台</h1>
+  <div>博士专属运营控制台 —— 夏娃已经把按钮擦亮了。</div>
+</header>
+
+<main>
+  <section>
+    <h2>访问 Token</h2>
+    <p class="hint">请输入插件配置里的 admin_token。Token 只保存在当前浏览器 localStorage。</p>
+    <input id="token" placeholder="admin_token" />
+    <button onclick="saveToken()">保存 Token</button>
+  </section>
+
+  <div class="tabs">
+    <button class="active" onclick="showTab('items')">商品管理</button>
+    <button onclick="showTab('codes')">兑换码</button>
+    <button onclick="showTab('texts')">文案模板</button>
+    <button onclick="showTab('announcements')">公告</button>
+    <button onclick="showTab('users')">用户数据</button>
+  </div>
+
+  <section id="tab-items">
+    <h2>商品管理</h2>
+
+    <div class="grid">
+      <div>
+        <label>商品 ID</label>
+        <input id="item_id" placeholder="例如 len_small" />
+      </div>
+      <div>
+        <label>名称</label>
+        <input id="item_name" placeholder="例如 成长饼干" />
+      </div>
+      <div>
+        <label>类型</label>
+        <select id="item_type">
+          <option value="prop">道具</option>
+          <option value="accessory">饰品</option>
+        </select>
+      </div>
+      <div>
+        <label>价格</label>
+        <input id="item_price" type="number" value="20" />
+      </div>
+    </div>
+
+    <label>描述</label>
+    <input id="item_description" placeholder="商品描述" />
+
+    <label>效果 JSON</label>
+    <textarea id="item_effect">{"add":{"length":1}}</textarea>
+
+    <button onclick="saveItem()">保存商品</button>
+    <button class="secondary" onclick="loadItems()">刷新列表</button>
+
+    <table>
+      <thead>
+      <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>类型</th>
+        <th>价格</th>
+        <th>效果</th>
+        <th>描述</th>
+        <th>启用</th>
+        <th>操作</th>
+      </tr>
+      </thead>
+      <tbody id="items_body"></tbody>
+    </table>
+  </section>
+
+  <section id="tab-codes" class="hidden">
+    <h2>兑换码管理</h2>
+
+    <div class="grid">
+      <div>
+        <label>兑换码</label>
+        <input id="code" placeholder="例如 HAPPYNIU" />
+      </div>
+      <div>
+        <label>有效期时间戳</label>
+        <input id="code_expire" type="number" />
+      </div>
+      <div>
+        <label>最大使用次数</label>
+        <input id="code_max_uses" type="number" value="100" />
+      </div>
+    </div>
+
+    <label>奖励 JSON</label>
+    <textarea id="code_reward">{"attrs":{"length":2,"girth":0.3,"hardness":5,"energy":100},"items":["acc_sunglasses"]}</textarea>
+
+    <button onclick="saveCode()">保存兑换码</button>
+    <button class="secondary" onclick="loadCodes()">刷新列表</button>
+
+    <table>
+      <thead>
+      <tr>
+        <th>兑换码</th>
+        <th>奖励</th>
+        <th>有效期</th>
+        <th>次数</th>
+        <th>启用</th>
+        <th>操作</th>
+      </tr>
+      </thead>
+      <tbody id="codes_body"></tbody>
+    </table>
+  </section>
+
+  <section id="tab-texts" class="hidden">
+    <h2>文案模板管理</h2>
+
+    <label>模板 Key</label>
+    <input id="text_key" placeholder="例如 compare.win" />
+
+    <label>文案数组 JSON</label>
+    <textarea id="text_value">["{nickname}，这是一条新文案。"]</textarea>
+
+    <button onclick="saveText()">保存文案</button>
+    <button class="secondary" onclick="loadTexts()">刷新列表</button>
+
+    <table>
+      <thead>
+      <tr>
+        <th>Key</th>
+        <th>Value</th>
+        <th>操作</th>
+      </tr>
+      </thead>
+      <tbody id="texts_body"></tbody>
+    </table>
+  </section>
+
+  <section id="tab-announcements" class="hidden">
+    <h2>公告管理</h2>
+
+    <label>公告内容</label>
+    <textarea id="announcement_content">今天牛牛商城上新啦！</textarea>
+
+    <button onclick="saveAnnouncement()">发布公告</button>
+    <button class="secondary" onclick="loadAnnouncements()">刷新列表</button>
+
+    <table>
+      <thead>
+      <tr>
+        <th>ID</th>
+        <th>内容</th>
+        <th>创建者</th>
+        <th>时间</th>
+        <th>操作</th>
+      </tr>
+      </thead>
+      <tbody id="announcements_body"></tbody>
+    </table>
+  </section>
+
+  <section id="tab-users" class="hidden">
+    <h2>用户数据</h2>
+
+    <label>群号，可为空</label>
+    <input id="user_group_id" placeholder="不填则查询前 200 名" />
+
+    <button onclick="loadUsers()">查询用户</button>
+
+    <table>
+      <thead>
+      <tr>
+        <th>群</th>
+        <th>用户</th>
+        <th>昵称</th>
+        <th>长度</th>
+        <th>粗度</th>
+        <th>硬度</th>
+        <th>魅力</th>
+        <th>精力</th>
+      </tr>
+      </thead>
+      <tbody id="users_body"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+  function token() {
+    return localStorage.getItem("niuniu_admin_token") || "";
+  }
+
+  function saveToken() {
+    const value = document.getElementById("token").value.trim();
+    localStorage.setItem("niuniu_admin_token", value);
+    alert("Token 已保存");
+  }
+
+  async function api(path, options = {}) {
+    const headers = options.headers || {};
+    headers["Authorization"] = "Bearer " + token();
+    if (options.body && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const resp = await fetch(path, {
+      ...options,
+      headers
+    });
+
+    const data = await resp.json();
+    if (!data.ok) {
+      throw new Error(data.error || "请求失败");
+    }
+    return data.data;
+  }
+
+  function showTab(name) {
+    for (const el of document.querySelectorAll("section[id^='tab-']")) {
+      el.classList.add("hidden");
+    }
+    document.getElementById("tab-" + name).classList.remove("hidden");
+
+    for (const btn of document.querySelectorAll(".tabs button")) {
+      btn.classList.remove("active");
+    }
+    event.target.classList.add("active");
+
+    if (name === "items") loadItems();
+    if (name === "codes") loadCodes();
+    if (name === "texts") loadTexts();
+    if (name === "announcements") loadAnnouncements();
+    if (name === "users") loadUsers();
+  }
+
+  function prettyTime(ts) {
+    if (!ts) return "";
+    return new Date(ts * 1000).toLocaleString();
+  }
+
+  async function loadItems() {
+    try {
+      const data = await api("/api/items");
+      const tbody = document.getElementById("items_body");
+      tbody.innerHTML = "";
+      for (const row of data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.item_id}</td>
+          <td>${row.name}</td>
+          <td>${row.item_type}</td>
+          <td>${row.price}</td>
+          <td class="json">${row.effect_json}</td>
+          <td>${row.description}</td>
+          <td>${row.enabled}</td>
+          <td>
+            <button onclick='editItem(${JSON.stringify(row)})'>编辑</button>
+            <button class="danger" onclick='deleteItem("${row.item_id}")'>禁用</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  function editItem(row) {
+    document.getElementById("item_id").value = row.item_id;
+    document.getElementById("item_name").value = row.name;
+    document.getElementById("item_type").value = row.item_type;
+    document.getElementById("item_price").value = row.price;
+    document.getElementById("item_description").value = row.description;
+    document.getElementById("item_effect").value = row.effect_json;
+  }
+
+  async function saveItem() {
+    try {
+      const body = {
+        item_id: document.getElementById("item_id").value.trim(),
+        name: document.getElementById("item_name").value.trim(),
+        item_type: document.getElementById("item_type").value,
+        price: Number(document.getElementById("item_price").value),
+        description: document.getElementById("item_description").value.trim(),
+        effect: JSON.parse(document.getElementById("item_effect").value),
+        enabled: true
+      };
+      await api("/api/items", {
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+      alert("商品已保存");
+      loadItems();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function deleteItem(itemId) {
+    if (!confirm("确定禁用这个商品？")) return;
+    try {
+      await api("/api/items/" + encodeURIComponent(itemId), {
+        method: "DELETE"
+      });
+      loadItems();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function loadCodes() {
+    try {
+      const data = await api("/api/redeem-codes");
+      const tbody = document.getElementById("codes_body");
+      tbody.innerHTML = "";
+      for (const row of data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.code}</td>
+          <td class="json">${row.reward_json}</td>
+          <td>${prettyTime(row.expire_at)}</td>
+          <td>${row.used_count}/${row.max_uses}</td>
+          <td>${row.enabled}</td>
+          <td>
+            <button onclick='editCode(${JSON.stringify(row)})'>编辑</button>
+            <button class="danger" onclick='deleteCode("${row.code}")'>禁用</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  function editCode(row) {
+    document.getElementById("code").value = row.code;
+    document.getElementById("code_reward").value = row.reward_json;
+    document.getElementById("code_expire").value = row.expire_at;
+    document.getElementById("code_max_uses").value = row.max_uses;
+  }
+
+  async function saveCode() {
+    try {
+      const body = {
+        code: document.getElementById("code").value.trim(),
+        reward: JSON.parse(document.getElementById("code_reward").value),
+        expire_at: Number(document.getElementById("code_expire").value),
+        max_uses: Number(document.getElementById("code_max_uses").value),
+        enabled: true
+      };
+      await api("/api/redeem-codes", {
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+      alert("兑换码已保存");
+      loadCodes();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function deleteCode(code) {
+    if (!confirm("确定禁用这个兑换码？")) return;
+    try {
+      await api("/api/redeem-codes/" + encodeURIComponent(code), {
+        method: "DELETE"
+      });
+      loadCodes();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function loadTexts() {
+    try {
+      const data = await api("/api/text-templates");
+      const tbody = document.getElementById("texts_body");
+      tbody.innerHTML = "";
+      for (const row of data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.key}</td>
+          <td class="json">${row.value_json}</td>
+          <td>
+            <button onclick='editText(${JSON.stringify(row)})'>编辑</button>
+            <button class="danger" onclick='deleteText("${row.key}")'>删除</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  function editText(row) {
+    document.getElementById("text_key").value = row.key;
+    document.getElementById("text_value").value = row.value_json;
+  }
+
+  async function saveText() {
+    try {
+      const body = {
+        key: document.getElementById("text_key").value.trim(),
+        value: JSON.parse(document.getElementById("text_value").value)
+      };
+      await api("/api/text-templates", {
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+      alert("文案已保存");
+      loadTexts();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function deleteText(key) {
+    if (!confirm("确定删除这个文案模板？")) return;
+    try {
+      await api("/api/text-templates/" + encodeURIComponent(key), {
+        method: "DELETE"
+      });
+      loadTexts();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function loadAnnouncements() {
+    try {
+      const data = await api("/api/announcements");
+      const tbody = document.getElementById("announcements_body");
+      tbody.innerHTML = "";
+      for (const row of data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.id}</td>
+          <td>${row.content}</td>
+          <td>${row.created_by}</td>
+          <td>${prettyTime(row.created_at)}</td>
+          <td>
+            <button class="danger" onclick='deleteAnnouncement(${row.id})'>删除</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function saveAnnouncement() {
+    try {
+      const body = {
+        content: document.getElementById("announcement_content").value.trim(),
+        created_by: "web-admin"
+      };
+      await api("/api/announcements", {
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+      alert("公告已发布");
+      loadAnnouncements();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function deleteAnnouncement(id) {
+    if (!confirm("确定删除这条公告？")) return;
+    try {
+      await api("/api/announcements/" + id, {
+        method: "DELETE"
+      });
+      loadAnnouncements();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      const groupId = document.getElementById("user_group_id").value.trim();
+      const data = await api("/api/users" + (groupId ? "?group_id=" + encodeURIComponent(groupId) : ""));
+      const tbody = document.getElementById("users_body");
+      tbody.innerHTML = "";
+      for (const row of data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.group_id}</td>
+          <td>${row.user_id}</td>
+          <td>${row.nickname}</td>
+          <td>${Number(row.length).toFixed(2)}</td>
+          <td>${Number(row.girth).toFixed(2)}</td>
+          <td>${Number(row.hardness).toFixed(2)}</td>
+          <td>${Number(row.charm).toFixed(2)}</td>
+          <td>${row.energy}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  document.getElementById("token").value = token();
+
+  const defaultExpire = Math.floor(Date.now() / 1000) + 86400 * 30;
+  document.getElementById("code_expire").value = defaultExpire;
+
+  loadItems();
+</script>
+</body>
+</html>
