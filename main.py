@@ -750,6 +750,49 @@ class NiuNiuPlugin(Star):
 
         yield event.plain_result(msg)
 
+    @filter.command("牛牛背包")
+    async def backpack(self, event: AstrMessageEvent):
+        """查看牛牛背包中的道具和饰品。"""
+        await self._ensure_db()
+
+        group_id = self._group_id(event)
+        user_id = self._user_id(event)
+        nickname = self._nickname(event)
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            user = await self._get_user(db, group_id, user_id)
+            if not user:
+                msg = await self._text(db, "my.not_registered", nickname=nickname)
+                yield event.plain_result(msg)
+                return
+
+            rows = await db.execute_fetchall(
+                """
+                SELECT i.item_id, s.name, i.item_type, i.count, s.description
+                FROM inventory i
+                JOIN shop_items s ON i.item_id = s.item_id
+                WHERE i.group_id = ? AND i.user_id = ?
+                ORDER BY i.item_type ASC, s.name ASC
+                """,
+                (group_id, user_id)
+            )
+
+        if not rows:
+            yield event.plain_result(
+                f"{nickname}，你的牛牛背包空空如也，像刚被风吹过的口袋。发送“牛牛商城”去补点货吧。"
+            )
+            return
+
+        lines = [f"{nickname} 的牛牛背包："]
+        for item_id, name, item_type, count, desc in rows:
+            type_name = "饰品" if item_type == "accessory" else "道具"
+            lines.append(f"- {item_id}｜{name}｜{type_name} x{count}｜{desc}")
+
+        lines.append("\n使用道具：牛牛使用 道具ID")
+        lines.append("提示：饰品只要拥有就会自动增加魅力值，不需要手动使用。")
+
+        yield event.plain_result("\n".join(lines))
+
     # ======================
     # 指令：牛牛购买 道具ID
     # ======================
