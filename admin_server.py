@@ -176,7 +176,7 @@ class NiuNiuAdminServer:
             rows = await db.execute_fetchall(
                 """
                 SELECT item_id, name, item_type, price, effect_json,
-                       description, enabled, created_at
+                    description, use_mode, enabled, created_at
                 FROM shop_items
                 ORDER BY created_at DESC
                 """
@@ -194,6 +194,7 @@ class NiuNiuAdminServer:
         description = str(body.get("description", "")).strip()
         enabled = 1 if body.get("enabled", True) else 0
         effect = body.get("effect", {})
+        use_mode = str(body.get("use_mode", "instant")).strip()
 
         if not item_id:
             return self._fail("item_id 不能为空")
@@ -201,6 +202,8 @@ class NiuNiuAdminServer:
             return self._fail("item_type 只能是 prop 或 accessory")
         if price < 0:
             return self._fail("price 不能小于 0")
+        if use_mode not in {"instant", "inventory"}:
+            return self._fail("use_mode 只能是 instant 或 inventory")
 
         try:
             effect_json = json.dumps(effect, ensure_ascii=False)
@@ -212,8 +215,8 @@ class NiuNiuAdminServer:
             await db.execute(
                 """
                 INSERT INTO shop_items
-                (item_id, name, item_type, price, effect_json, description, enabled, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (item_id, name, item_type, price, effect_json, description, use_mode, enabled, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(item_id)
                 DO UPDATE SET
                     name = excluded.name,
@@ -221,6 +224,7 @@ class NiuNiuAdminServer:
                     price = excluded.price,
                     effect_json = excluded.effect_json,
                     description = excluded.description,
+                    use_mode = excluded.use_mode,
                     enabled = excluded.enabled
                 """,
                 (
@@ -230,6 +234,7 @@ class NiuNiuAdminServer:
                     price,
                     effect_json,
                     description,
+                    use_mode,
                     enabled,
                     int(time.time())
                 )
