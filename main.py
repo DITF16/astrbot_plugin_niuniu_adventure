@@ -13,7 +13,7 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star
 import astrbot.api.message_components as Comp
 
-from admin_server import NiuNiuAdminServer
+from .admin_server import NiuNiuAdminServer
 
 DB_DIR = os.path.join("data", "niuniu_game")
 DB_PATH = os.path.join(DB_DIR, "niuniu.db")
