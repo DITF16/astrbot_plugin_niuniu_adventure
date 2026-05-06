@@ -1449,4 +1449,6 @@ class NiuNiuPlugin(Star):
 
     async def terminate(self):
         """插件卸载/停用时调用。"""
+        if self.admin_server:
+            await self.admin_server.stop()
         logger.info("牛牛大乱斗插件已停止")
