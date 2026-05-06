@@ -13,6 +13,7 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star
 import astrbot.api.message_components as Comp
 
+from admin_server import NiuNiuAdminServer
 
 DB_DIR = os.path.join("data", "niuniu_game")
 DB_PATH = os.path.join(DB_DIR, "niuniu.db")
@@ -49,6 +50,39 @@ class NiuNiuPlugin(Star):
         self.config = config or {}
         os.makedirs(DB_DIR, exist_ok=True)
         self._db_ready = False
+        self.admin_server = None
+
+    @filter.on_astrbot_loaded()
+    async def on_astrbot_loaded(self):
+        """
+        AstrBot 初始化完成后启动管理后台。
+
+        注意：
+        - 必须先初始化数据库，否则后台访问表时可能报错。
+        - 管理后台是否启动由配置控制。
+        """
+        await self._ensure_db()
+
+        enabled = bool(self.config.get("enable_builtin_admin_server", False))
+        if not enabled:
+            logger.info("牛牛管理后台未启用")
+            return
+
+        host = str(self.config.get("admin_server_host", "127.0.0.1"))
+        port = int(self.config.get("admin_server_port", 8787))
+        token = str(self.config.get("admin_token", "please-change-me"))
+
+        static_dir = os.path.join(os.path.dirname(__file__), "static")
+
+        self.admin_server = NiuNiuAdminServer(
+            db_path=DB_PATH,
+            static_dir=static_dir,
+            host=host,
+            port=port,
+            token=token
+        )
+
+        await self.admin_server.start()
 
     async def _ensure_db(self):
         if self._db_ready:
