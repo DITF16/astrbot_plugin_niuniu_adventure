@@ -164,6 +164,13 @@
         <input id="item_price" type="number" value="20" />
       </div>
     </div>
+    <div>
+    <label>使用模式</label>
+    <select id="item_use_mode">
+        <option value="instant">购买即生效</option>
+        <option value="inventory">进入背包</option>
+    </select>
+    </div>
 
     <label>描述</label>
     <input id="item_description" placeholder="商品描述" />
@@ -181,6 +188,7 @@
         <th>名称</th>
         <th>类型</th>
         <th>价格</th>
+        <th>使用模式</th>
         <th>效果</th>
         <th>描述</th>
         <th>启用</th>
@@ -368,6 +376,7 @@
           <td>${row.name}</td>
           <td>${row.item_type}</td>
           <td>${row.price}</td>
+          <td>${row.use_mode || "instant"}</td>
           <td class="json">${row.effect_json}</td>
           <td>${row.description}</td>
           <td>${row.enabled}</td>
@@ -390,19 +399,21 @@
     document.getElementById("item_price").value = row.price;
     document.getElementById("item_description").value = row.description;
     document.getElementById("item_effect").value = row.effect_json;
+    document.getElementById("item_use_mode").value = row.use_mode || "instant";
   }
 
   async function saveItem() {
     try {
-      const body = {
+        const body = {
         item_id: document.getElementById("item_id").value.trim(),
         name: document.getElementById("item_name").value.trim(),
         item_type: document.getElementById("item_type").value,
+        use_mode: document.getElementById("item_use_mode").value,
         price: Number(document.getElementById("item_price").value),
         description: document.getElementById("item_description").value.trim(),
         effect: JSON.parse(document.getElementById("item_effect").value),
         enabled: true
-      };
+        };
       await api("/api/items", {
         method: "POST",
         body: JSON.stringify(body)
