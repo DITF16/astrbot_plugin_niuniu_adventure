@@ -68,6 +68,7 @@ class NiuNiuAdminServer:
         1. Authorization: Bearer token
         2. ?token=xxx
         """
+        logger.info(f"牛牛后台请求：{request.method} {request.path}")
         path = request.path
 
         if path == "/":
@@ -108,7 +109,7 @@ class NiuNiuAdminServer:
     def _setup_routes(self):
         assert self.app is not None
 
-        self.app.router.add_get("/", self.index)
+        self.app.router.add_route("*", "/", self.index)
 
         # 商品
         self.app.router.add_get("/api/items", self.list_items)
@@ -132,6 +133,19 @@ class NiuNiuAdminServer:
 
         # 用户数据只读，方便运营观察
         self.app.router.add_get("/api/users", self.list_users)
+
+        # 兼容 OPTIONS 预检
+        self.app.router.add_route("OPTIONS", "/api/{tail:.*}", self.options_handler)
+
+    async def options_handler(self, request: web.Request):
+        return web.Response(
+            status=204,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+                "Access-Control-Allow-Headers": "Authorization,Content-Type"
+            }
+        )
 
     async def index(self, request: web.Request):
         path = os.path.join(self.static_dir, "index.html")
