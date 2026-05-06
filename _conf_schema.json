@@ -1,0 +1,19 @@
+{
+  "super_admin_ids": {
+    "description": "超级管理员 QQ 号列表，英文逗号分隔",
+    "type": "string",
+    "default": "",
+    "hint": "例如：123456,987654"
+  },
+  "enable_builtin_admin_server": {
+    "description": "是否启用内置管理后台",
+    "type": "bool",
+    "default": false,
+    "hint": "第一版先预留，后续可开启 FastAPI/Aiohttp 管理后台"
+  },
+  "admin_server_port": {
+    "description": "内置管理后台端口",
+    "type": "int",
+    "default": 8787
+  }
+}
