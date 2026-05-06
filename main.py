@@ -49,23 +49,57 @@ class NiuNiuPlugin(Star):
         super().__init__(context)
         self.config = config or {}
         os.makedirs(DB_DIR, exist_ok=True)
+
         self._db_ready = False
         self.admin_server = None
 
-    @filter.on_astrbot_loaded()
-    async def on_astrbot_loaded(self):
+        # 插件生命周期启动任务。
+        # 不依赖 on_astrbot_loaded，确保插件重载时也会启动后台。
+        self._startup_task = None
+
+        try:
+            loop = asyncio.get_running_loop()
+            self._startup_task = loop.create_task(self._startup())
+            logger.info("牛牛大乱斗插件启动任务已创建")
+        except RuntimeError:
+            # 极少数情况下 __init__ 时事件循环还没运行。
+            # 这种情况下至少不会让插件加载失败。
+            logger.warning("当前没有运行中的事件循环，牛牛后台启动任务未创建")
+
+    async def _startup(self):
         """
-        AstrBot 初始化完成后启动管理后台。
+        插件加载后的异步启动逻辑。
+
+        这里负责：
+        1. 初始化数据库
+        2. 根据配置启动管理后台
 
         注意：
-        - 必须先初始化数据库，否则后台访问表时可能报错。
-        - 管理后台是否启动由配置控制。
+        不使用 on_astrbot_loaded，是因为插件热重载时该钩子不一定触发。
         """
-        await self._ensure_db()
+        try:
+            await self._ensure_db()
+            await self._start_admin_server()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"牛牛大乱斗插件启动失败：{e}", exc_info=True)
+
+    async def _start_admin_server(self):
+        """
+        启动内置管理后台。
+
+        该方法需要保证幂等：
+        - 已经启动过就不重复启动
+        - 配置未开启则直接返回
+        """
+        if self.admin_server:
+            logger.info("牛牛管理后台已经启动，跳过重复启动")
+            return
 
         enabled = bool(self.config.get("enable_builtin_admin_server", False))
         if not enabled:
-            logger.info("牛牛管理后台未启用")
+            logger.info("牛牛管理后台未启用，请在插件配置中开启 enable_builtin_admin_server")
             return
 
         host = str(self.config.get("admin_server_host", "127.0.0.1"))
@@ -73,6 +107,9 @@ class NiuNiuPlugin(Star):
         token = str(self.config.get("admin_token", "please-change-me"))
 
         static_dir = os.path.join(os.path.dirname(__file__), "static")
+
+        if not os.path.exists(os.path.join(static_dir, "index.html")):
+            logger.warning(f"牛牛管理后台静态页面不存在：{os.path.join(static_dir, 'index.html')}")
 
         self.admin_server = NiuNiuAdminServer(
             db_path=DB_PATH,
@@ -1647,7 +1684,28 @@ class NiuNiuPlugin(Star):
         return "，".join(desc) if desc else "一阵神秘的好运"
 
     async def terminate(self):
-        """插件卸载/停用时调用。"""
+        """
+        插件卸载/停用/重载时调用。
+
+        需要做两件事：
+        1. 取消启动任务
+        2. 停止管理后台
+        """
+        if self._startup_task and not self._startup_task.done():
+            self._startup_task.cancel()
+            try:
+                await self._startup_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning(f"牛牛启动任务结束时出现异常：{e}")
+
         if self.admin_server:
-            await self.admin_server.stop()
+            try:
+                await self.admin_server.stop()
+            except Exception as e:
+                logger.warning(f"牛牛管理后台停止失败：{e}")
+            finally:
+                self.admin_server = None
+
         logger.info("牛牛大乱斗插件已停止")
